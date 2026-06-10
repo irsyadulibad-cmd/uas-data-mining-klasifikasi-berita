@@ -537,7 +537,7 @@ def predict_news(text):
 
 
 # =========================================================
-# SIDEBAR - MENU DIKELOMPOKKAN
+# SIDEBAR - MENU DIKELOMPOKKAN DAN LEBIH RINGKAS
 # =========================================================
 
 with st.sidebar:
@@ -557,37 +557,36 @@ with st.sidebar:
     st.markdown("---")
 
     if kelompok_menu == "📊 Dataset & Model":
-        st.markdown("### 📊 Data dari Dataset")
-        st.caption("Menu ini memakai file hasil training, dataset sample, dan file evaluasi model.")
+        st.markdown("### 📊 Dataset & Model")
+        st.caption("Menggunakan dataset sample, hasil training, dan file evaluasi model.")
 
         menu = st.radio(
             "Pilih Menu",
             [
                 "Beranda",
                 "Informasi Dataset",
-                "Filter Analisis",
                 "Dashboard Monitoring",
+                "Filter Analisis",
                 "Word Cloud & Keyword",
                 "Evaluasi Model",
                 "Pengembangan",
             ]
         )
 
-        st.markdown("---")
-        st.markdown("### Sumber Data")
-        st.write("• dataset_clean_sample.csv")
-        st.write("• evaluation_metrics.json")
-        st.write("• classification_report.csv")
-        st.write("• confusion_matrix.csv")
-        st.write("• tag_distribution.csv")
-        st.write("• source_distribution.csv")
-        st.write("• monthly_distribution.csv")
-        st.write("• top_words.csv")
-        st.write("• algorithm_comparison.csv")
+        with st.expander("📁 Sumber Data"):
+            st.write("dataset_clean_sample.csv")
+            st.write("evaluation_metrics.json")
+            st.write("classification_report.csv")
+            st.write("confusion_matrix.csv")
+            st.write("tag_distribution.csv")
+            st.write("source_distribution.csv")
+            st.write("monthly_distribution.csv")
+            st.write("top_words.csv")
+            st.write("algorithm_comparison.csv")
 
     elif kelompok_menu == "✍️ Input Pengguna":
-        st.markdown("### ✍️ Data dari Input User")
-        st.caption("Menu ini memakai teks atau file CSV yang dimasukkan pengguna secara manual.")
+        st.markdown("### ✍️ Input Pengguna")
+        st.caption("Menggunakan teks atau file CSV yang dimasukkan pengguna.")
 
         menu = st.radio(
             "Pilih Menu",
@@ -599,16 +598,15 @@ with st.sidebar:
             ]
         )
 
-        st.markdown("---")
-        st.markdown("### Sumber Data")
-        st.write("• Teks berita manual")
-        st.write("• File CSV upload")
-        st.write("• Input pengguna di aplikasi")
-        st.write("• Model hasil training")
+        with st.expander("📁 Sumber Data"):
+            st.write("Teks berita manual")
+            st.write("File CSV upload")
+            st.write("Input pengguna di aplikasi")
+            st.write("Model hasil training")
 
     else:
-        st.markdown("### 🌐 Data Real-Time")
-        st.caption("Menu ini mengambil data terbaru dari RSS/Google News secara langsung.")
+        st.markdown("### 🌐 Real-Time")
+        st.caption("Mengambil data terbaru dari RSS/Google News secara langsung.")
 
         menu = st.radio(
             "Pilih Menu",
@@ -617,30 +615,25 @@ with st.sidebar:
             ]
         )
 
-        st.markdown("---")
-        st.markdown("### Sumber Data")
-        st.write("• RSS Google News")
-        st.write("• RSS media online")
-        st.write("• Data berita terbaru")
-        st.write("• Model hasil training")
+        with st.expander("📁 Sumber Data"):
+            st.write("RSS Google News")
+            st.write("RSS media online")
+            st.write("Data berita terbaru")
+            st.write("Model hasil training")
 
     st.markdown("---")
 
-    st.markdown("### Model")
-    st.write("• TF-IDF")
-    st.write("• Naive Bayes / best model")
-    st.write("• Mapping kategori umum")
-    st.write("• Sentimen lexicon")
-    st.write("• Ringkasan extractive")
-
-    st.markdown("---")
+    with st.expander("⚙️ Model yang Digunakan", expanded=False):
+        st.write("TF-IDF")
+        st.write("Naive Bayes / best model")
+        st.write("Mapping kategori umum")
+        st.write("Sentimen lexicon")
+        st.write("Ringkasan extractive")
 
     if model_available:
         st.success("Model aktif")
     else:
         st.warning("Model tidak ditemukan, mode rule-based aktif")
-
-
 # =========================================================
 # BERANDA
 # =========================================================
