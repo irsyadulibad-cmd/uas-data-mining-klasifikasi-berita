@@ -4,6 +4,9 @@ import re
 import string
 import pandas as pd
 import numpy as np
+import json
+import os
+import matplotlib.pyplot as plt
 
 # =========================
 # LOAD MODEL
@@ -11,6 +14,33 @@ import numpy as np
 
 model = joblib.load("model_berita.pkl")
 tfidf = joblib.load("vectorizer_tfidf.pkl")
+
+
+# =========================
+# HELPER LOAD FILE
+# =========================
+
+def load_json(path, default=None):
+    if os.path.exists(path):
+        with open(path, "r") as f:
+            return json.load(f)
+    return default
+
+
+def load_csv(path):
+    if os.path.exists(path):
+        return pd.read_csv(path)
+    return None
+
+
+metrics = load_json("evaluation_metrics.json", {})
+dataset_summary = load_json("dataset_summary.json", {})
+
+classification_report_df = load_csv("classification_report.csv")
+confusion_matrix_df = load_csv("confusion_matrix.csv")
+tag_distribution_df = load_csv("tag_distribution.csv")
+source_distribution_df = load_csv("source_distribution.csv")
+monthly_distribution_df = load_csv("monthly_distribution.csv")
 
 
 # =========================
@@ -130,43 +160,48 @@ st.sidebar.caption("UAS Data Mining 2026")
 if menu == "Beranda":
     st.title("📰 Klasifikasi Topik Berita Indonesia")
     st.write(
-        "Aplikasi ini dibuat untuk memprediksi topik berita Indonesia berdasarkan teks berita "
-        "menggunakan metode **TF-IDF** dan algoritma **Multinomial Naive Bayes**."
+        "Aplikasi ini digunakan untuk memprediksi topik atau tag berita Indonesia "
+        "berdasarkan teks berita menggunakan metode **TF-IDF** dan algoritma "
+        "**Multinomial Naive Bayes**."
     )
 
     st.markdown("---")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Metode", "TF-IDF")
-
-    with col2:
         st.metric("Algoritma", "Naive Bayes")
 
+    with col2:
+        st.metric("Fitur", "TF-IDF")
+
     with col3:
-        st.metric("Output", "Topik Berita")
+        st.metric("Jumlah Label", metrics.get("total_classes", "-"))
+
+    with col4:
+        acc = metrics.get("accuracy", None)
+        st.metric("Akurasi", f"{acc:.2%}" if acc is not None else "-")
 
     st.markdown("---")
 
     st.subheader("Latar Belakang")
     st.write(
-        "Perkembangan media online menyebabkan jumlah berita digital meningkat sangat cepat. "
-        "Banyaknya berita yang diterbitkan setiap hari membuat proses pengelompokan topik secara manual "
-        "menjadi kurang efisien. Oleh karena itu, diperlukan pendekatan data mining berbasis text mining "
-        "untuk membantu mengklasifikasikan berita secara otomatis."
+        "Perkembangan media online membuat jumlah berita digital meningkat sangat cepat. "
+        "Berita yang diterbitkan setiap hari memiliki topik yang beragam, mulai dari politik, "
+        "hukum, ekonomi, bencana, daerah, hingga isu internasional. Pengelompokan berita secara manual "
+        "membutuhkan waktu yang lama, sehingga diperlukan pendekatan otomatis menggunakan data mining."
     )
 
     st.subheader("Tujuan Aplikasi")
     st.write(
-        "Aplikasi ini bertujuan untuk membantu memprediksi topik berita berdasarkan judul atau isi berita "
-        "yang dimasukkan pengguna. Sistem akan melakukan preprocessing teks, mengubah teks menjadi fitur numerik "
-        "menggunakan TF-IDF, lalu memprediksi topik menggunakan model Naive Bayes."
+        "Aplikasi ini bertujuan untuk membantu mengklasifikasikan topik berita berdasarkan teks. "
+        "Pengguna dapat memasukkan judul atau isi berita, kemudian sistem akan melakukan preprocessing, "
+        "transformasi TF-IDF, dan prediksi menggunakan model Naive Bayes."
     )
 
     st.info(
-        "Catatan: Label prediksi berasal dari kolom tag1 pada dataset, sehingga hasil dapat berupa tag seperti "
-        "kpk, jakarta, prabowo, info-tempo, dan tag lainnya."
+        "Catatan: Label prediksi berasal dari kolom tag1 pada dataset. Karena itu, hasil prediksi "
+        "bisa berupa nama tokoh, lokasi, isu, kanal berita, atau tag khusus dari dataset."
     )
 
 
@@ -217,6 +252,26 @@ elif menu == "Prediksi Topik Berita":
                 chart_df = result_df.set_index("Label Dataset")["Probabilitas (%)"]
                 st.bar_chart(chart_df)
 
+                st.subheader("Analisis Hasil Prediksi")
+                top_score = result_df.iloc[0]["Probabilitas (%)"]
+
+                if top_score >= 70:
+                    st.write(
+                        "Model memiliki tingkat keyakinan yang tinggi terhadap hasil prediksi. "
+                        "Hal ini menunjukkan bahwa teks input memiliki pola kata yang cukup kuat "
+                        "dan sesuai dengan label yang diprediksi."
+                    )
+                elif top_score >= 40:
+                    st.write(
+                        "Model memiliki tingkat keyakinan sedang. Artinya, teks berita memiliki kecenderungan "
+                        "ke label tertentu, tetapi masih terdapat kemungkinan kemiripan dengan label lain."
+                    )
+                else:
+                    st.write(
+                        "Model memiliki tingkat keyakinan rendah. Hal ini dapat terjadi karena teks terlalu pendek, "
+                        "topik terlalu umum, atau terdapat kemiripan kata dengan beberapa label lain."
+                    )
+
             with st.expander("Lihat Teks Setelah Preprocessing"):
                 st.write(clean)
 
@@ -239,14 +294,13 @@ elif menu == "Prediksi Banyak Berita":
 
     if uploaded_file is not None:
         try:
-            # Membaca CSV dengan mode aman
             data = pd.read_csv(
                 uploaded_file,
                 engine="python",
                 on_bad_lines="skip"
             )
 
-            st.success("File berhasil dibaca. Baris yang formatnya rusak otomatis dilewati.")
+            st.success("File berhasil dibaca. Jika ada baris rusak, sistem akan melewatinya otomatis.")
 
             st.subheader("Preview Data")
             st.dataframe(data.head(), use_container_width=True)
@@ -254,11 +308,9 @@ elif menu == "Prediksi Banyak Berita":
             st.write(f"Jumlah data terbaca: **{len(data)} baris**")
             st.write(f"Jumlah kolom: **{len(data.columns)} kolom**")
 
-            text_columns = data.columns.tolist()
-
             selected_column = st.selectbox(
                 "Pilih kolom yang berisi teks berita:",
-                text_columns
+                data.columns.tolist()
             )
 
             jumlah_prediksi = st.slider(
@@ -287,6 +339,20 @@ elif menu == "Prediksi Banyak Berita":
                 st.subheader("Hasil Prediksi")
                 st.dataframe(hasil_df, use_container_width=True)
 
+                st.subheader("Distribusi Hasil Prediksi")
+                pred_count = hasil_df["Label Dataset"].value_counts()
+                st.bar_chart(pred_count)
+
+                st.subheader("Analisis Prediksi Banyak Data")
+                dominant_label = pred_count.index[0]
+                dominant_count = pred_count.iloc[0]
+
+                st.write(
+                    f"Dari {len(hasil_df)} data yang diprediksi, label paling dominan adalah "
+                    f"**{dominant_label}** dengan jumlah **{dominant_count} berita**. "
+                    "Distribusi ini menunjukkan kecenderungan topik berita pada file yang diunggah."
+                )
+
                 csv = hasil_df.to_csv(index=False).encode("utf-8")
 
                 st.download_button(
@@ -299,8 +365,10 @@ elif menu == "Prediksi Banyak Berita":
         except Exception as e:
             st.error(f"Terjadi error saat membaca file: {e}")
             st.warning(
-                "Coba gunakan file CSV yang lebih kecil atau pastikan file memiliki format kolom yang rapi."
+                "Coba gunakan file CSV yang lebih kecil atau pastikan format kolomnya rapi."
             )
+
+
 # =========================
 # PAGE: EVALUASI MODEL
 # =========================
@@ -308,50 +376,140 @@ elif menu == "Prediksi Banyak Berita":
 elif menu == "Evaluasi Model":
     st.title("📊 Evaluasi Model")
     st.write(
-        "Halaman ini menjelaskan evaluasi model klasifikasi berita yang digunakan dalam aplikasi."
+        "Halaman ini menampilkan hasil evaluasi model klasifikasi berita menggunakan data testing."
     )
 
     st.markdown("---")
+
+    accuracy = metrics.get("accuracy", None)
+    macro_precision = metrics.get("macro_precision", None)
+    macro_recall = metrics.get("macro_recall", None)
+    macro_f1 = metrics.get("macro_f1", None)
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.metric("Model", "Naive Bayes")
+        st.metric("Accuracy", f"{accuracy:.2%}" if accuracy is not None else "-")
 
     with col2:
-        st.metric("Fitur", "TF-IDF")
+        st.metric("Macro Precision", f"{macro_precision:.2%}" if macro_precision is not None else "-")
 
     with col3:
-        st.metric("Split Data", "80:20")
+        st.metric("Macro Recall", f"{macro_recall:.2%}" if macro_recall is not None else "-")
 
     with col4:
-        st.metric("Output", "Tag Berita")
+        st.metric("Macro F1-Score", f"{macro_f1:.2%}" if macro_f1 is not None else "-")
 
     st.markdown("---")
 
-    st.subheader("Metrik Evaluasi")
-    st.write(
-        "Evaluasi model dilakukan dengan menggunakan beberapa metrik, yaitu akurasi, precision, recall, "
-        "f1-score, dan confusion matrix. Metrik tersebut digunakan untuk melihat sejauh mana model mampu "
-        "memprediksi topik berita dengan benar."
-    )
+    st.subheader("Grafik Metrik Evaluasi")
 
-    st.write(
-        "Nilai evaluasi lengkap diperoleh dari proses training dan testing di Google Colab. "
-        "Hasil tersebut dapat dilihat pada notebook yang disertakan dalam repository project."
-    )
+    if metrics:
+        metric_chart = pd.DataFrame({
+            "Metrik": ["Accuracy", "Macro Precision", "Macro Recall", "Macro F1-Score"],
+            "Nilai": [
+                metrics.get("accuracy", 0) * 100,
+                metrics.get("macro_precision", 0) * 100,
+                metrics.get("macro_recall", 0) * 100,
+                metrics.get("macro_f1", 0) * 100
+            ]
+        })
 
-    st.subheader("Interpretasi")
-    st.write(
-        "Jika nilai akurasi model tinggi, maka model mampu mengklasifikasikan sebagian besar data uji "
-        "dengan benar. Namun, jika terdapat kategori dengan jumlah data sedikit, performa model pada kategori "
-        "tersebut dapat lebih rendah. Hal ini wajar karena model lebih mudah mempelajari pola dari kategori "
-        "yang memiliki jumlah data lebih banyak."
-    )
+        st.bar_chart(metric_chart.set_index("Metrik"))
 
-    st.warning(
-        "Catatan: Karena label berasal dari tag berita, beberapa label dapat bersifat sangat spesifik, "
-        "misalnya nama tokoh, lokasi, atau nama kanal berita."
+        st.write(
+            "Grafik di atas menunjukkan performa umum model. Accuracy menggambarkan jumlah prediksi benar "
+            "dibandingkan seluruh data uji. Precision menunjukkan ketepatan prediksi model, recall menunjukkan "
+            "kemampuan model menemukan data pada setiap kelas, sedangkan F1-score merupakan keseimbangan antara "
+            "precision dan recall."
+        )
+    else:
+        st.warning("File evaluation_metrics.json belum tersedia.")
+
+    st.markdown("---")
+
+    st.subheader("Classification Report")
+
+    if classification_report_df is not None:
+        st.dataframe(classification_report_df, use_container_width=True)
+
+        report_plot = classification_report_df.copy()
+
+        if "Unnamed: 0" in report_plot.columns:
+            report_plot = report_plot.rename(columns={"Unnamed: 0": "label"})
+
+        report_plot = report_plot[
+            ~report_plot["label"].isin(["accuracy", "macro avg", "weighted avg"])
+        ]
+
+        if "f1-score" in report_plot.columns:
+            report_plot["f1-score"] = pd.to_numeric(report_plot["f1-score"], errors="coerce")
+            report_plot = report_plot.dropna(subset=["f1-score"])
+            report_plot = report_plot.sort_values("f1-score", ascending=False).head(10)
+
+            st.subheader("Top 10 Label dengan F1-Score Tertinggi")
+            st.bar_chart(report_plot.set_index("label")["f1-score"])
+
+            st.write(
+                "Label dengan F1-score tinggi menunjukkan bahwa model mampu mengenali pola kata pada label tersebut "
+                "dengan baik. Biasanya hal ini terjadi karena jumlah data pada label tersebut cukup banyak dan kata-kata "
+                "yang muncul memiliki ciri khas yang jelas."
+            )
+
+    else:
+        st.warning("File classification_report.csv belum tersedia.")
+
+    st.markdown("---")
+
+    st.subheader("Confusion Matrix")
+
+    if confusion_matrix_df is not None:
+        cm_display = confusion_matrix_df.copy()
+
+        if "Unnamed: 0" in cm_display.columns:
+            cm_display = cm_display.set_index("Unnamed: 0")
+
+        max_classes = st.slider(
+            "Jumlah label yang ditampilkan pada confusion matrix",
+            min_value=5,
+            max_value=min(30, len(cm_display)),
+            value=min(10, len(cm_display))
+        )
+
+        cm_small = cm_display.iloc[:max_classes, :max_classes]
+
+        fig, ax = plt.subplots(figsize=(10, 6))
+        im = ax.imshow(cm_small.values)
+
+        ax.set_xticks(np.arange(len(cm_small.columns)))
+        ax.set_yticks(np.arange(len(cm_small.index)))
+        ax.set_xticklabels(cm_small.columns, rotation=45, ha="right")
+        ax.set_yticklabels(cm_small.index)
+
+        ax.set_xlabel("Prediksi")
+        ax.set_ylabel("Aktual")
+        ax.set_title("Confusion Matrix")
+
+        fig.colorbar(im)
+        st.pyplot(fig)
+
+        st.write(
+            "Confusion matrix menunjukkan perbandingan antara label aktual dan label hasil prediksi. "
+            "Nilai diagonal menunjukkan jumlah prediksi yang benar, sedangkan nilai di luar diagonal menunjukkan "
+            "kesalahan prediksi. Jika banyak nilai berada pada diagonal, maka model bekerja dengan baik."
+        )
+
+    else:
+        st.warning("File confusion_matrix.csv belum tersedia.")
+
+    st.markdown("---")
+
+    st.subheader("Analisis Evaluasi Model")
+    st.write(
+        "Berdasarkan proses evaluasi, model Naive Bayes dengan TF-IDF dapat digunakan untuk klasifikasi "
+        "teks berita karena mampu mempelajari pola kemunculan kata pada setiap tag. Namun, performa model "
+        "sangat dipengaruhi oleh kualitas label dan keseimbangan jumlah data. Jika terdapat label yang terlalu "
+        "spesifik atau jumlah datanya sedikit, model cenderung lebih sulit mengenali label tersebut."
     )
 
 
@@ -362,12 +520,26 @@ elif menu == "Evaluasi Model":
 elif menu == "Informasi Dataset":
     st.title("📚 Informasi Dataset")
     st.write(
-        "Dataset yang digunakan adalah Indonesia News Dataset yang berisi data berita Indonesia dari beberapa media."
+        "Halaman ini menampilkan ringkasan dataset yang digunakan dalam proses training model."
     )
 
     st.markdown("---")
 
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Total Data Awal", dataset_summary.get("total_data_awal", "-"))
+
+    with col2:
+        st.metric("Total Data Model", dataset_summary.get("total_data_model", "-"))
+
+    with col3:
+        st.metric("Total Label", dataset_summary.get("total_label", "-"))
+
+    st.markdown("---")
+
     st.subheader("Kolom yang Digunakan")
+
     dataset_info = pd.DataFrame({
         "Kolom": ["Judul", "Content", "tag1", "source", "Waktu", "Link"],
         "Keterangan": [
@@ -382,28 +554,78 @@ elif menu == "Informasi Dataset":
 
     st.dataframe(dataset_info, use_container_width=True)
 
-    st.subheader("Proses Pembentukan Data Model")
-    st.write(
-        "Kolom **Judul** dan **Content** digabungkan menjadi satu teks berita. "
-        "Kolom **tag1** digunakan sebagai label atau target klasifikasi. "
-        "Data kemudian dibersihkan melalui proses preprocessing sebelum diubah menjadi fitur numerik menggunakan TF-IDF."
-    )
+    st.markdown("---")
+
+    st.subheader("Distribusi Topik/Tag Terbanyak")
+
+    if tag_distribution_df is not None:
+        top_n = st.slider(
+            "Jumlah topik/tag yang ditampilkan",
+            min_value=5,
+            max_value=min(30, len(tag_distribution_df)),
+            value=min(10, len(tag_distribution_df))
+        )
+
+        top_tags = tag_distribution_df.head(top_n)
+        st.bar_chart(top_tags.set_index("tag")["jumlah"])
+
+        st.write(
+            "Grafik ini menunjukkan tag yang paling banyak muncul dalam dataset. Tag dengan jumlah data tinggi "
+            "lebih mudah dipelajari oleh model karena memiliki lebih banyak contoh teks."
+        )
+    else:
+        st.warning("File tag_distribution.csv belum tersedia.")
+
+    st.markdown("---")
+
+    st.subheader("Distribusi Sumber Berita")
+
+    if source_distribution_df is not None:
+        top_sources = source_distribution_df.head(10)
+        st.bar_chart(top_sources.set_index("source")["jumlah"])
+
+        st.write(
+            "Grafik ini menunjukkan media atau sumber berita yang paling banyak muncul dalam dataset. "
+            "Distribusi sumber penting untuk melihat keberagaman data yang digunakan."
+        )
+    else:
+        st.warning("File source_distribution.csv belum tersedia.")
+
+    st.markdown("---")
+
+    st.subheader("Tren Jumlah Berita Berdasarkan Waktu")
+
+    if monthly_distribution_df is not None:
+        st.line_chart(monthly_distribution_df.set_index("bulan")["jumlah"])
+
+        st.write(
+            "Grafik tren waktu menunjukkan perubahan jumlah berita berdasarkan bulan. "
+            "Jika terdapat lonjakan jumlah berita pada bulan tertentu, hal itu dapat menunjukkan adanya isu besar "
+            "atau peningkatan aktivitas pemberitaan."
+        )
+    else:
+        st.warning("File monthly_distribution.csv belum tersedia.")
+
+    st.markdown("---")
 
     st.subheader("Tahapan Preprocessing")
+
     preprocessing_df = pd.DataFrame({
         "Tahapan": [
             "Lowercase",
             "Menghapus URL",
             "Menghapus angka",
             "Menghapus tanda baca",
-            "Menghapus spasi berlebih"
+            "Menghapus spasi berlebih",
+            "TF-IDF"
         ],
         "Tujuan": [
             "Menyamakan bentuk huruf",
             "Membersihkan tautan dari teks",
             "Mengurangi noise",
             "Menyederhanakan teks",
-            "Merapikan format teks"
+            "Merapikan format teks",
+            "Mengubah teks menjadi fitur numerik"
         ]
     })
 
@@ -436,27 +658,53 @@ elif menu == "Tentang Project":
 
     st.subheader("Metode yang Digunakan")
     st.write(
-        "Metode yang digunakan dalam project ini adalah preprocessing teks, pembobotan kata dengan TF-IDF, "
+        "Metode yang digunakan dalam project ini meliputi preprocessing teks, pembobotan kata menggunakan TF-IDF, "
         "dan klasifikasi menggunakan algoritma Multinomial Naive Bayes."
     )
 
-    st.subheader("Output")
+    st.subheader("Alur Sistem")
+    alur_df = pd.DataFrame({
+        "Tahap": [
+            "Input teks berita",
+            "Preprocessing",
+            "TF-IDF",
+            "Naive Bayes",
+            "Output prediksi"
+        ],
+        "Penjelasan": [
+            "Pengguna memasukkan judul atau isi berita",
+            "Teks dibersihkan dari URL, angka, tanda baca, dan spasi berlebih",
+            "Teks diubah menjadi representasi numerik",
+            "Model memprediksi label berdasarkan pola kata",
+            "Sistem menampilkan label, kategori umum, dan probabilitas"
+        ]
+    })
+
+    st.dataframe(alur_df, use_container_width=True)
+
+    st.subheader("Kelebihan")
     st.write(
-        "Output dari aplikasi ini adalah prediksi label dataset, kategori umum, serta probabilitas topik tertinggi."
+        "- Aplikasi sederhana dan mudah digunakan.\n"
+        "- Model dapat memprediksi topik berita secara otomatis.\n"
+        "- Menampilkan probabilitas prediksi.\n"
+        "- Mendukung prediksi satu berita dan banyak berita dari CSV.\n"
+        "- Memiliki halaman evaluasi dan informasi dataset."
     )
 
     st.subheader("Keterbatasan")
     st.write(
-        "Aplikasi ini masih memiliki keterbatasan karena label yang digunakan berasal dari tag berita, "
-        "bukan kategori umum seperti politik, ekonomi, olahraga, atau teknologi. Oleh karena itu, beberapa hasil "
-        "prediksi dapat berupa nama tokoh, nama tempat, atau tag khusus dari dataset."
+        "- Label berasal dari tag berita, bukan kategori umum resmi.\n"
+        "- Beberapa label dapat berupa nama tokoh, lokasi, atau kanal berita.\n"
+        "- Model dapat kurang akurat pada label dengan jumlah data sedikit.\n"
+        "- Model masih menggunakan algoritma klasik, belum menggunakan deep learning."
     )
 
     st.subheader("Pengembangan Selanjutnya")
     st.write(
-        "Pengembangan selanjutnya dapat dilakukan dengan menyeimbangkan jumlah data tiap kategori, "
-        "mengelompokkan tag menjadi kategori umum, serta membandingkan performa algoritma lain seperti "
-        "Support Vector Machine, Logistic Regression, Random Forest, atau deep learning."
+        "Pengembangan dapat dilakukan dengan mengelompokkan tag menjadi kategori umum seperti politik, ekonomi, "
+        "hukum, olahraga, teknologi, bencana, dan internasional. Selain itu, model dapat dibandingkan dengan "
+        "algoritma lain seperti Support Vector Machine, Logistic Regression, Random Forest, atau IndoBERT untuk "
+        "meningkatkan akurasi klasifikasi teks berbahasa Indonesia."
     )
 
 
