@@ -9,7 +9,7 @@ import os
 import matplotlib.pyplot as plt
 
 # =========================================================
-# PAGE CONFIG
+# KONFIGURASI HALAMAN
 # =========================================================
 
 st.set_page_config(
@@ -20,7 +20,7 @@ st.set_page_config(
 )
 
 # =========================================================
-# MODERN CSS
+# CUSTOM CSS - UI MODERN
 # =========================================================
 
 st.markdown("""
@@ -77,7 +77,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
     padding: 34px 36px;
     border-radius: 28px;
     background:
-        linear-gradient(135deg, rgba(15,23,42,0.94), rgba(30,64,175,0.92)),
+        linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,64,175,0.93)),
         radial-gradient(circle at top right, rgba(56,189,248,.30), transparent 35%);
     color: white;
     box-shadow: 0 24px 70px rgba(15, 23, 42, .20);
@@ -96,7 +96,7 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
 .hero-subtitle {
     font-size: 17px;
     color: #dbeafe;
-    max-width: 850px;
+    max-width: 900px;
     line-height: 1.65;
 }
 
@@ -120,20 +120,35 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
 .glass-card {
     padding: 24px;
     border-radius: 24px;
-    background: rgba(255,255,255,.78);
+    background: rgba(255,255,255,.80);
     backdrop-filter: blur(16px);
     border: 1px solid rgba(148,163,184,.24);
     box-shadow: 0 18px 48px rgba(15, 23, 42, .08);
     margin-bottom: 20px;
 }
 
-.soft-card {
-    padding: 22px;
+.metric-card {
+    padding: 20px;
     border-radius: 22px;
-    background: #ffffff;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     border: 1px solid #e2e8f0;
-    box-shadow: 0 12px 32px rgba(15,23,42,.06);
-    margin-bottom: 18px;
+    box-shadow: 0 14px 35px rgba(15,23,42,.07);
+    min-height: 112px;
+}
+
+.metric-label {
+    font-size: 13px;
+    color: #64748b;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.metric-value {
+    font-size: 25px;
+    color: #0f172a;
+    font-weight: 800;
+    margin-top: 6px;
 }
 
 .section-title {
@@ -151,27 +166,22 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
     margin-bottom: 18px;
 }
 
-.metric-card {
-    padding: 20px;
-    border-radius: 22px;
-    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 14px 35px rgba(15,23,42,.07);
+.info-modern {
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e3a8a;
+    margin-bottom: 18px;
 }
 
-.metric-label {
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-}
-
-.metric-value {
-    font-size: 26px;
-    color: #0f172a;
-    font-weight: 800;
-    margin-top: 6px;
+.warning-modern {
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    margin-bottom: 18px;
 }
 
 .result-box {
@@ -198,22 +208,39 @@ section[data-testid="stSidebar"] div[role="radiogroup"] label:hover {
     margin-top: 4px;
 }
 
-.warning-modern {
-    padding: 18px 20px;
-    border-radius: 20px;
-    background: #fff7ed;
-    border: 1px solid #fed7aa;
-    color: #9a3412;
-    margin-bottom: 18px;
+.dev-card {
+    padding: 22px;
+    border-radius: 22px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 14px 38px rgba(15,23,42,.06);
+    height: 100%;
 }
 
-.info-modern {
-    padding: 18px 20px;
-    border-radius: 20px;
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    color: #1e3a8a;
-    margin-bottom: 18px;
+.dev-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #2563eb, #0ea5e9);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    margin-bottom: 14px;
+}
+
+.dev-title {
+    font-size: 18px;
+    color: #0f172a;
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.dev-text {
+    color: #475569;
+    line-height: 1.65;
+    font-size: 14.5px;
 }
 
 div[data-testid="stTextArea"] textarea {
@@ -268,7 +295,6 @@ hr {
 </style>
 """, unsafe_allow_html=True)
 
-
 # =========================================================
 # LOAD MODEL
 # =========================================================
@@ -279,11 +305,14 @@ def load_model():
     tfidf = joblib.load("vectorizer_tfidf.pkl")
     return model, tfidf
 
-model, tfidf = load_model()
-
+try:
+    model, tfidf = load_model()
+except Exception as e:
+    st.error("Model belum ditemukan. Pastikan file model_berita.pkl dan vectorizer_tfidf.pkl ada di repository.")
+    st.stop()
 
 # =========================================================
-# LOAD SUPPORT FILES
+# LOAD FILE PENDUKUNG
 # =========================================================
 
 def load_json(path, default=None):
@@ -292,12 +321,10 @@ def load_json(path, default=None):
             return json.load(f)
     return default if default is not None else {}
 
-
 def load_csv(path):
     if os.path.exists(path):
         return pd.read_csv(path)
     return None
-
 
 metrics = load_json("evaluation_metrics.json", {})
 dataset_summary = load_json("dataset_summary.json", {})
@@ -310,9 +337,8 @@ monthly_distribution_df = load_csv("monthly_distribution.csv")
 top_words_df = load_csv("top_words.csv")
 algorithm_comparison_df = load_csv("algorithm_comparison.csv")
 
-
 # =========================================================
-# HELPER FUNCTIONS
+# FUNGSI BANTUAN
 # =========================================================
 
 def clean_text(text):
@@ -323,33 +349,40 @@ def clean_text(text):
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
-
 def label_mapping(label):
     mapping = {
         "kpk": "Hukum / Korupsi",
         "korupsi": "Hukum / Korupsi",
+        "kejaksaan": "Hukum",
+        "pengadilan": "Hukum",
         "prabowo": "Politik / Pemerintahan",
         "prabowo subianto": "Politik / Pemerintahan",
         "jokowi": "Politik / Pemerintahan",
+        "pilkada": "Politik / Pemilu",
+        "pemilu": "Politik / Pemilu",
         "jakarta": "Daerah / Perkotaan",
         "surabaya": "Daerah / Perkotaan",
+        "bandung": "Daerah / Perkotaan",
+        "jawa timur": "Daerah",
         "banjir": "Bencana",
         "gempa": "Bencana",
-        "kecelakaan": "Peristiwa",
-        "info-tempo": "Berita Umum",
+        "longsor": "Bencana",
+        "kebakaran": "Bencana",
         "israel": "Internasional",
         "gaza": "Internasional",
         "palestina": "Internasional",
-        "pilkada": "Politik / Pemilu",
-        "pemilu": "Politik / Pemilu",
+        "amerika": "Internasional",
         "bola": "Olahraga",
         "timnas": "Olahraga",
+        "liga 1": "Olahraga",
         "ekonomi": "Ekonomi",
+        "rupiah": "Ekonomi",
+        "investasi": "Ekonomi",
+        "inflasi": "Ekonomi",
+        "info-tempo": "Berita Umum",
     }
-
     label_lower = str(label).lower().strip()
     return mapping.get(label_lower, "Topik Berita Umum")
-
 
 def predict_news(text):
     clean = clean_text(text)
@@ -357,7 +390,6 @@ def predict_news(text):
     prediction = model.predict(vector)[0]
 
     result_df = None
-
     if hasattr(model, "predict_proba"):
         proba = model.predict_proba(vector)[0]
         classes = model.classes_
@@ -377,7 +409,6 @@ def predict_news(text):
 
     return prediction, label_mapping(prediction), clean, result_df
 
-
 def metric_card(label, value):
     st.markdown(
         f"""
@@ -388,7 +419,6 @@ def metric_card(label, value):
         """,
         unsafe_allow_html=True
     )
-
 
 def hero(title, subtitle, badges=None):
     badges = badges or []
@@ -404,7 +434,6 @@ def hero(title, subtitle, badges=None):
         unsafe_allow_html=True
     )
 
-
 def section(title, caption=""):
     st.markdown(
         f"""
@@ -414,6 +443,17 @@ def section(title, caption=""):
         unsafe_allow_html=True
     )
 
+def dev_card(number, title, text):
+    st.markdown(
+        f"""
+        <div class="dev-card">
+            <div class="dev-number">{number}</div>
+            <div class="dev-title">{title}</div>
+            <div class="dev-text">{text}</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 # =========================================================
 # SIDEBAR
@@ -432,6 +472,7 @@ with st.sidebar:
             "Prediksi Banyak Berita",
             "Evaluasi Model",
             "Informasi Dataset",
+            "Pengembangan Selanjutnya",
             "Tentang Project"
         ]
     )
@@ -445,9 +486,8 @@ with st.sidebar:
     st.markdown("---")
     st.caption("UAS Data Mining 2026")
 
-
 # =========================================================
-# PAGE: BERANDA
+# BERANDA
 # =========================================================
 
 if menu == "Beranda":
@@ -456,7 +496,7 @@ if menu == "Beranda":
 
     hero(
         "Klasifikasi Topik Berita Indonesia",
-        "Aplikasi data mining untuk memprediksi topik/tag berita berdasarkan teks berita menggunakan TF-IDF dan Multinomial Naive Bayes. Dilengkapi prediksi satu berita, prediksi banyak berita, grafik evaluasi, dan analisis dataset.",
+        "Aplikasi data mining untuk memprediksi topik/tag berita berdasarkan teks berita menggunakan TF-IDF dan Multinomial Naive Bayes. Aplikasi ini dilengkapi prediksi satu berita, prediksi banyak berita, grafik evaluasi, analisis dataset, dan pengembangan selanjutnya.",
         ["TF-IDF", "Naive Bayes", "Streamlit", "Text Mining"]
     )
 
@@ -502,9 +542,8 @@ if menu == "Beranda":
         st.bar_chart(top_tags.set_index("tag")["jumlah"])
         st.markdown("</div>", unsafe_allow_html=True)
 
-
 # =========================================================
-# PAGE: PREDIKSI TOPIK BERITA
+# PREDIKSI TOPIK BERITA
 # =========================================================
 
 elif menu == "Prediksi Topik Berita":
@@ -587,9 +626,8 @@ elif menu == "Prediksi Topik Berita":
                     st.write(clean)
                 st.markdown("</div>", unsafe_allow_html=True)
 
-
 # =========================================================
-# PAGE: PREDIKSI BANYAK BERITA
+# PREDIKSI BANYAK BERITA
 # =========================================================
 
 elif menu == "Prediksi Banyak Berita":
@@ -675,9 +713,8 @@ elif menu == "Prediksi Banyak Berita":
             st.error(f"Terjadi error saat membaca file: {e}")
             st.warning("Coba gunakan file CSV yang lebih kecil atau pastikan format kolomnya rapi.")
 
-
 # =========================================================
-# PAGE: EVALUASI MODEL
+# EVALUASI MODEL
 # =========================================================
 
 elif menu == "Evaluasi Model":
@@ -785,13 +822,12 @@ elif menu == "Evaluasi Model":
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         section("Perbandingan Algoritma", "Perbandingan performa beberapa algoritma apabila file hasil perbandingan tersedia.")
         st.dataframe(algorithm_comparison_df, use_container_width=True, hide_index=True)
-        if "accuracy" in algorithm_comparison_df.columns:
+        if "accuracy" in algorithm_comparison_df.columns and "algorithm" in algorithm_comparison_df.columns:
             st.bar_chart(algorithm_comparison_df.set_index("algorithm")["accuracy"])
         st.markdown("</div>", unsafe_allow_html=True)
 
-
 # =========================================================
-# PAGE: INFORMASI DATASET
+# INFORMASI DATASET
 # =========================================================
 
 elif menu == "Informasi Dataset":
@@ -858,9 +894,168 @@ elif menu == "Informasi Dataset":
         st.write("Lonjakan jumlah berita pada bulan tertentu dapat menunjukkan peningkatan aktivitas pemberitaan atau munculnya isu besar.")
         st.markdown("</div>", unsafe_allow_html=True)
 
+# =========================================================
+# PENGEMBANGAN SELANJUTNYA
+# =========================================================
+
+elif menu == "Pengembangan Selanjutnya":
+    hero(
+        "Pengembangan Selanjutnya",
+        "Aplikasi ini masih dapat dikembangkan agar memiliki fungsi yang lebih lengkap, akurasi yang lebih baik, dan tampilan analisis yang lebih informatif.",
+        ["Roadmap", "Model improvement", "Dashboard", "Real-time data"]
+    )
+
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    section(
+        "Ringkasan Arah Pengembangan",
+        "Pengembangan difokuskan pada tiga aspek utama: perbaikan label dan dataset, peningkatan performa model, serta perluasan fitur aplikasi."
+    )
+
+    roadmap_df = pd.DataFrame({
+        "Fokus": [
+            "Perbaikan label",
+            "Penyeimbangan data",
+            "Perbandingan algoritma",
+            "Deep learning",
+            "Analisis sentimen",
+            "Dashboard real-time"
+        ],
+        "Tujuan": [
+            "Mengubah tag spesifik menjadi kategori umum",
+            "Mengurangi bias model terhadap tag dominan",
+            "Mencari model dengan performa terbaik",
+            "Memahami konteks bahasa Indonesia lebih baik",
+            "Mengetahui nada pemberitaan",
+            "Memantau berita terbaru secara otomatis"
+        ],
+        "Prioritas": [
+            "Tinggi",
+            "Tinggi",
+            "Sedang",
+            "Sedang",
+            "Sedang",
+            "Lanjutan"
+        ]
+    })
+    st.dataframe(roadmap_df, use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        dev_card(
+            "1",
+            "Mengelompokkan Tag Menjadi Kategori Umum",
+            "Label prediksi masih menggunakan tag1 dari dataset. Tag seperti kpk, prabowo, jakarta, banjir, dan info-tempo dapat dikelompokkan menjadi kategori umum seperti Hukum, Politik, Daerah, Bencana, Internasional, Olahraga, dan Ekonomi agar lebih mudah dipahami pengguna."
+        )
+
+    with col2:
+        dev_card(
+            "2",
+            "Menyeimbangkan Jumlah Data Setiap Kelas",
+            "Dataset berita biasanya tidak seimbang. Beberapa tag memiliki data sangat banyak, sedangkan tag lain sedikit. Pengembangan dapat dilakukan dengan filter label minimum, undersampling, oversampling, class weighting, dan penggabungan label kecil."
+        )
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        dev_card(
+            "3",
+            "Membandingkan Beberapa Algoritma",
+            "Model saat ini menggunakan Multinomial Naive Bayes. Model dapat dibandingkan dengan Support Vector Machine, Logistic Regression, Random Forest, Decision Tree, K-Nearest Neighbor, dan XGBoost untuk mencari performa terbaik."
+        )
+
+    with col4:
+        dev_card(
+            "4",
+            "Menggunakan Model Bahasa Indonesia seperti IndoBERT",
+            "Untuk meningkatkan pemahaman konteks kalimat, aplikasi dapat menggunakan IndoBERT, IndoBERTweet, mBERT, LSTM, BiLSTM, atau CNN Text Classification. Model ini dapat memahami hubungan makna antar kata lebih baik daripada TF-IDF."
+        )
+
+    col5, col6 = st.columns(2)
+
+    with col5:
+        dev_card(
+            "5",
+            "Menambahkan Analisis Sentimen Berita",
+            "Selain topik, aplikasi dapat dikembangkan untuk mendeteksi sentimen positif, negatif, dan netral. Fitur ini berguna untuk mengetahui kecenderungan nada pemberitaan terhadap tokoh, lembaga, kebijakan, atau isu tertentu."
+        )
+
+    with col6:
+        dev_card(
+            "6",
+            "Menambahkan Word Cloud dan Kata Kunci Dominan",
+            "Aplikasi dapat menampilkan word cloud, top keyword, frekuensi kata, dan kata dominan per topik. Fitur ini membantu pengguna memahami isu utama dalam kumpulan berita secara visual."
+        )
+
+    col7, col8 = st.columns(2)
+
+    with col7:
+        dev_card(
+            "7",
+            "Menambahkan Filter Analisis",
+            "Aplikasi dapat menambahkan filter berdasarkan tanggal berita, sumber media, topik/tag, kategori umum, kata kunci, dan jumlah berita. Dengan filter ini, pengguna bisa melakukan analisis yang lebih spesifik."
+        )
+
+    with col8:
+        dev_card(
+            "8",
+            "Mengembangkan Dashboard Monitoring Berita",
+            "Dashboard dapat menampilkan jumlah berita terbaru, topik paling ramai, media paling aktif, tren isu harian atau bulanan, top aktor, top organisasi, dan ringkasan otomatis berita."
+        )
+
+    col9, col10 = st.columns(2)
+
+    with col9:
+        dev_card(
+            "9",
+            "Integrasi dengan Data Berita Real-Time",
+            "Saat ini aplikasi menggunakan dataset statis. Ke depan, sistem dapat dihubungkan dengan RSS media online, Google News, API berita, web scraping, atau database internal agar berita terbaru dapat diklasifikasikan otomatis."
+        )
+
+    with col10:
+        dev_card(
+            "10",
+            "Menambahkan Ringkasan Otomatis Berita",
+            "Aplikasi dapat menerima teks berita panjang lalu menghasilkan ringkasan singkat, topik berita, kata kunci utama, sentimen berita, dan sumber berita. Fitur ini membuat aplikasi lebih berguna untuk monitoring isu."
+        )
+
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    section("Contoh Mapping Tag ke Kategori Umum")
+    mapping_df = pd.DataFrame({
+        "Tag / Kata Kunci": [
+            "kpk, korupsi, kejaksaan, pengadilan",
+            "prabowo, jokowi, pilkada, pemilu",
+            "banjir, gempa, longsor, kebakaran",
+            "jakarta, surabaya, bandung, jawa timur",
+            "israel, palestina, gaza, amerika",
+            "bola, timnas, liga 1",
+            "ekonomi, rupiah, investasi, inflasi"
+        ],
+        "Kategori Umum": [
+            "Hukum",
+            "Politik",
+            "Bencana",
+            "Daerah",
+            "Internasional",
+            "Olahraga",
+            "Ekonomi"
+        ]
+    })
+    st.dataframe(mapping_df, use_container_width=True, hide_index=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    section("Analisis Manfaat Pengembangan")
+    st.write(
+        "Dengan pengembangan tersebut, aplikasi tidak hanya berfungsi sebagai sistem klasifikasi topik berita, "
+        "tetapi juga dapat menjadi dashboard analisis berita yang lebih lengkap. Pengguna dapat melihat topik yang sedang ramai, "
+        "membandingkan performa algoritma, memahami kecenderungan sentimen, serta memantau berita terbaru secara otomatis."
+    )
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
-# PAGE: TENTANG PROJECT
+# TENTANG PROJECT
 # =========================================================
 
 elif menu == "Tentang Project":
@@ -884,11 +1079,12 @@ elif menu == "Tentang Project":
     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
     section("Kelebihan Aplikasi")
     st.write("""
-- Tampilan aplikasi lebih modern dan interaktif.
+- Tampilan aplikasi modern dan interaktif.
 - Mendukung prediksi satu berita dan prediksi banyak berita dari CSV.
 - Menampilkan probabilitas prediksi.
 - Menyediakan dashboard evaluasi model.
 - Menampilkan analisis dataset, grafik distribusi, dan tren berita.
+- Menyediakan halaman pengembangan selanjutnya.
 """)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -901,16 +1097,6 @@ elif menu == "Tentang Project":
 - Model belum menggunakan deep learning seperti IndoBERT.
 """)
     st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-    section("Pengembangan Selanjutnya")
-    st.write("""
-Pengembangan dapat dilakukan dengan mengelompokkan tag menjadi kategori umum seperti politik, ekonomi, hukum, olahraga, teknologi, bencana, daerah, dan internasional. Model juga dapat dibandingkan dengan SVM, Logistic Regression, Random Forest, XGBoost, atau model deep learning seperti IndoBERT.
-
-Aplikasi juga dapat dikembangkan menjadi dashboard monitoring berita real-time dengan integrasi RSS, Google News, API berita, analisis sentimen, word cloud, filter sumber media, filter waktu, dan ringkasan otomatis.
-""")
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 # =========================================================
 # FOOTER
