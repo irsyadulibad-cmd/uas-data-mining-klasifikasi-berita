@@ -1298,7 +1298,7 @@ elif menu == "Berita Real-Time":
     with col3:
         country = st.selectbox("Negara", ["ID", "US"], index=0)
 
-    limit = st.slider("Jumlah berita real-time", 3, 30, 10)
+    limit = st.slider("Jumlah berita real-time", 10, 1000, 100)
 
     rss_url = build_google_news_rss_url(keyword, language=language, country=country)
 
