@@ -499,7 +499,7 @@ source_distribution_df = load_csv("source_distribution.csv")
 monthly_distribution_df = load_csv("monthly_distribution.csv")
 top_words_df = load_csv("top_words.csv")
 algorithm_comparison_df = load_csv("algorithm_comparison.csv")
-dataset_clean_df = load_csv("dataset_clean.csv")
+dataset_clean_df = load_csv("dataset_clean_sample.csv")
 
 
 def predict_news(text):
