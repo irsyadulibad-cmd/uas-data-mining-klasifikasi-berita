@@ -1,7 +1,10 @@
 {
     "total_data_awal": 78017,
-    "total_data_model": 5567,
-    "total_label": 10,
-    "kolom_teks": "Judul + Content",
-    "kolom_label": "tag1"
+    "total_data_model": 7105,
+    "total_label": 20,
+    "best_algorithm": "Logistic Regression",
+    "min_per_class": 30,
+    "max_per_class": 500,
+    "kolom_teks": "text",
+    "kolom_label": "category"
 }
