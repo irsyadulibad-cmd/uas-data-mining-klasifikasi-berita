@@ -354,7 +354,14 @@ def load_json(path, default=None):
 
 def load_csv(path):
     if os.path.exists(path):
-        return pd.read_csv(path)
+        try:
+            return pd.read_csv(
+                path,
+                engine="python",
+                on_bad_lines="skip"
+            )
+        except Exception:
+            return None
     return None
 
 
