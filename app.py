@@ -232,16 +232,27 @@ elif menu == "Prediksi Banyak Berita":
     )
 
     st.info(
-        "Format CSV minimal memiliki satu kolom teks, misalnya: Judul, Content, text, atau berita."
+        "Format CSV minimal memiliki satu kolom teks, misalnya: Judul, Content, text, berita, atau title."
     )
 
-    uploaded_file = st.file_uploader("Upload file CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Unggah file CSV", type=["csv"])
 
     if uploaded_file is not None:
         try:
-            data = pd.read_csv(uploaded_file)
+            # Membaca CSV dengan mode aman
+            data = pd.read_csv(
+                uploaded_file,
+                engine="python",
+                on_bad_lines="skip"
+            )
+
+            st.success("File berhasil dibaca. Baris yang formatnya rusak otomatis dilewati.")
+
             st.subheader("Preview Data")
             st.dataframe(data.head(), use_container_width=True)
+
+            st.write(f"Jumlah data terbaca: **{len(data)} baris**")
+            st.write(f"Jumlah kolom: **{len(data.columns)} kolom**")
 
             text_columns = data.columns.tolist()
 
@@ -250,10 +261,19 @@ elif menu == "Prediksi Banyak Berita":
                 text_columns
             )
 
+            jumlah_prediksi = st.slider(
+                "Jumlah data yang ingin diprediksi",
+                min_value=1,
+                max_value=min(500, len(data)),
+                value=min(20, len(data))
+            )
+
             if st.button("Prediksi Semua Data"):
                 hasil = []
 
-                for text in data[selected_column].astype(str):
+                data_prediksi = data.head(jumlah_prediksi)
+
+                for text in data_prediksi[selected_column].astype(str):
                     prediction, kategori_umum, clean, result_df = predict_news(text)
 
                     hasil.append({
@@ -278,8 +298,9 @@ elif menu == "Prediksi Banyak Berita":
 
         except Exception as e:
             st.error(f"Terjadi error saat membaca file: {e}")
-
-
+            st.warning(
+                "Coba gunakan file CSV yang lebih kecil atau pastikan file memiliki format kolom yang rapi."
+            )
 # =========================
 # PAGE: EVALUASI MODEL
 # =========================
