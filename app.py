@@ -4,6 +4,7 @@ import json
 import string
 from datetime import datetime
 from collections import Counter
+from urllib.parse import quote_plus
 
 import joblib
 import numpy as np
@@ -385,27 +386,103 @@ def extract_keywords(text, top_n=10):
     return Counter(words).most_common(top_n)
 
 
+
+def split_sentences(text):
+    """
+    Memecah teks menjadi kalimat.
+    Ringkasan otomatis akan lebih baik jika input memiliki minimal 4-5 kalimat.
+    """
+    text = str(text).replace("\n", " ").strip()
+    sentences = re.split(r"(?<=[.!?])\s+", text)
+    sentences = [s.strip() for s in sentences if len(s.strip()) > 25]
+    return sentences
+
+
 def simple_summary(text, max_sentences=3):
-    sentences = re.split(r"(?<=[.!?])\s+", str(text).strip())
-    sentences = [s.strip() for s in sentences if len(s.strip()) > 30]
+    """
+    Ringkasan extractive sederhana:
+    - Jika teks pendek, sistem memberi keterangan bahwa teks belum layak diringkas.
+    - Jika teks panjang, sistem memilih kalimat penting berdasarkan kata kunci, posisi, dan panjang kalimat.
+    """
+    text = str(text).strip()
+    sentences = split_sentences(text)
+
+    if len(sentences) == 0:
+        return "Teks terlalu pendek atau belum memiliki kalimat yang dapat diringkas."
 
     if len(sentences) <= max_sentences:
-        return " ".join(sentences) if sentences else str(text)[:600]
+        return (
+            "Teks masih terlalu pendek untuk diringkas secara signifikan. "
+            "Isi utama teks: " + " ".join(sentences)
+        )
 
-    keywords = dict(extract_keywords(text, top_n=25))
+    keywords = dict(extract_keywords(text, top_n=30))
 
     scored = []
-    for sent in sentences:
-        score = 0
+    for idx, sent in enumerate(sentences):
         sent_clean = clean_text(sent)
-        for word, freq in keywords.items():
-            if word in sent_clean:
-                score += freq
-        scored.append((score, sent))
+        words = sent_clean.split()
 
-    top = sorted(scored, key=lambda x: x[0], reverse=True)[:max_sentences]
-    selected = [s for _, s in top]
-    return " ".join(selected)
+        keyword_score = sum(keywords.get(w, 0) for w in words)
+        position_score = 2 if idx == 0 else 1 if idx == 1 else 0
+        length_score = 1 if 8 <= len(words) <= 35 else 0
+
+        total_score = keyword_score + position_score + length_score
+        scored.append((total_score, idx, sent))
+
+    selected = sorted(scored, key=lambda x: x[0], reverse=True)[:max_sentences]
+    selected = sorted(selected, key=lambda x: x[1])
+
+    return " ".join([sent for score, idx, sent in selected])
+
+
+def input_quality_info(text):
+    """
+    Mengevaluasi apakah input cukup baik untuk klasifikasi, sentimen, keyword, dan ringkasan.
+    """
+    words = clean_text(text).split()
+    sentences = split_sentences(text)
+
+    word_count = len(words)
+    sentence_count = len(sentences)
+
+    if word_count < 5:
+        return "Kurang", word_count, sentence_count, "Input terlalu pendek. Gunakan minimal satu kalimat berita."
+    elif word_count < 15:
+        return "Cukup", word_count, sentence_count, "Input bisa diprediksi, tetapi hasil lebih baik jika memakai judul dan isi berita."
+    elif word_count < 60:
+        return "Baik", word_count, sentence_count, "Input sudah cukup baik untuk klasifikasi topik dan sentimen."
+    else:
+        return "Sangat Baik", word_count, sentence_count, "Input sangat baik untuk klasifikasi, keyword, sentimen, dan ringkasan."
+
+
+def build_google_news_rss_url(keyword, language="id", country="ID"):
+    """
+    Membuat URL RSS Google News dari keyword.
+    Pengguna cukup mengetik keyword, bukan link RSS.
+    """
+    keyword = str(keyword).strip()
+    if keyword == "":
+        keyword = "Jawa Timur"
+
+    encoded_keyword = quote_plus(keyword)
+    return (
+        f"https://news.google.com/rss/search?q={encoded_keyword}"
+        f"&hl={language}&gl={country}&ceid={country}:{language}"
+    )
+
+
+def clean_google_news_title(title):
+    """
+    Google News RSS sering memberi format:
+    Judul Berita - Nama Media
+    Fungsi ini memisahkan judul dan sumber media jika memungkinkan.
+    """
+    title = str(title).strip()
+    if " - " in title:
+        parts = title.rsplit(" - ", 1)
+        return parts[0].strip(), parts[1].strip()
+    return title, "Google News"
 
 
 # =========================================================
@@ -726,69 +803,148 @@ if menu == "Beranda":
 elif menu == "Prediksi Topik":
     hero(
         "Prediksi Topik Berita",
-        "Masukkan teks berita. Sistem akan memprediksi label dataset, kategori umum, sentimen, keyword utama, dan ringkasan singkat.",
+        "Gunakan satu kalimat berita, judul berita, atau paragraf berita. Untuk hasil terbaik, masukkan judul dan isi berita, bukan hanya satu kata.",
         ["Topik", "Kategori umum", "Sentimen", "Keyword", "Ringkasan"]
     )
 
-    contoh = "KPK memeriksa sejumlah pejabat terkait dugaan korupsi pengadaan barang dan jasa di lingkungan pemerintah daerah."
+    st.markdown(
+        '<div class="info-modern">'
+        '<b>Panduan input:</b><br>'
+        '• Jangan hanya memasukkan satu kata seperti <i>KPK</i>, <i>banjir</i>, atau <i>Prabowo</i>.<br>'
+        '• Gunakan minimal satu kalimat berita.<br>'
+        '• Hasil terbaik diperoleh dari gabungan judul dan isi berita singkat.'
+        '</div>',
+        unsafe_allow_html=True
+    )
 
-    col1, col2 = st.columns([1.4, 1])
+    contoh_map = {
+        "Hukum/Korupsi": (
+            "KPK memeriksa sejumlah pejabat terkait dugaan korupsi pengadaan barang dan jasa "
+            "di lingkungan pemerintah daerah. Pemeriksaan dilakukan untuk mendalami aliran dana "
+            "dan keterlibatan pihak lain dalam kasus tersebut."
+        ),
+        "Politik": (
+            "Presiden Prabowo Subianto menggelar rapat kabinet bersama sejumlah menteri "
+            "untuk membahas program prioritas pemerintah dan stabilitas ekonomi nasional."
+        ),
+        "Bencana": (
+            "Banjir melanda sejumlah wilayah setelah hujan deras mengguyur sejak malam. "
+            "Warga diminta waspada karena tinggi air masih terus meningkat."
+        ),
+        "Ekonomi": (
+            "Nilai tukar rupiah melemah terhadap dolar Amerika Serikat seiring tekanan pasar global "
+            "dan kenaikan harga komoditas."
+        ),
+        "Tulis sendiri": ""
+    }
+
+    col1, col2 = st.columns([1.35, 1])
 
     with col1:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        text = st.text_area("Masukkan judul atau isi berita:", value=contoh, height=240)
+
+        pilihan_contoh = st.selectbox("Pilih contoh input", list(contoh_map.keys()))
+
+        text = st.text_area(
+            "Masukkan judul atau isi berita:",
+            value=contoh_map[pilihan_contoh],
+            height=240,
+            placeholder="Contoh: KPK memeriksa pejabat terkait dugaan korupsi pengadaan barang dan jasa..."
+        )
+
+        kualitas, word_count, sentence_count, pesan = input_quality_info(text)
+
+        q1, q2, q3 = st.columns(3)
+        with q1:
+            st.metric("Kualitas Input", kualitas)
+        with q2:
+            st.metric("Jumlah Kata", word_count)
+        with q3:
+            st.metric("Jumlah Kalimat", sentence_count)
+
+        st.caption(pesan)
         run = st.button("🔍 Analisis Berita")
         st.markdown("</div>", unsafe_allow_html=True)
 
     with col2:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         section("Output Analisis")
-        st.write("Aplikasi akan menampilkan prediksi topik, kategori umum, sentimen, kata kunci, dan ringkasan otomatis.")
+        st.write(
+            "Aplikasi akan menampilkan label dataset, kategori umum, probabilitas prediksi, "
+            "sentimen, kata kunci dominan, dan ringkasan otomatis jika teks cukup panjang."
+        )
+        st.markdown(
+            '<div class="warning-modern">'
+            '<b>Catatan:</b> model dilatih dari tag berita. Karena itu, label dapat berupa tag khusus seperti '
+            '<i>kpk</i>, <i>prabowo</i>, <i>jakarta</i>, atau <i>info-tempo</i>.'
+            '</div>',
+            unsafe_allow_html=True
+        )
         st.markdown("</div>", unsafe_allow_html=True)
 
     if run:
-        pred, cat, clean, prob_df = predict_news(text)
-        sent_label, pos, neg, score = sentiment_analysis(text)
-        keywords = extract_keywords(text, top_n=10)
-        summary = simple_summary(text)
+        if text.strip() == "":
+            st.warning("Silakan masukkan teks berita terlebih dahulu.")
+        else:
+            pred, cat, clean, prob_df = predict_news(text)
+            sent_label, pos, neg, score = sentiment_analysis(text)
+            keywords = extract_keywords(text, top_n=10)
+            summary = simple_summary(text, max_sentences=3)
 
-        st.markdown(
-            f"""
-            <div class="result-box">
-                <div class="result-label">Hasil Prediksi</div>
-                <div class="result-value">{pred}</div>
-                <div style="margin-top:8px;color:#166534;font-weight:600;">Kategori umum: {cat} · Sentimen: {sent_label}</div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+            st.markdown(
+                f"""
+                <div class="result-box">
+                    <div class="result-label">Hasil Analisis Utama</div>
+                    <div class="result-value">{cat}</div>
+                    <div style="margin-top:8px;color:#166534;font-weight:600;">
+                        Label dataset: {pred} · Sentimen: {sent_label}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-        c1, c2 = st.columns(2)
+            c1, c2 = st.columns(2)
 
-        with c1:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            section("Probabilitas Topik")
-            if prob_df is not None:
-                st.dataframe(prob_df[["Label Dataset", "Kategori Umum", "Probabilitas (%)"]], use_container_width=True, hide_index=True)
-                st.bar_chart(prob_df.set_index("Label Dataset")["Probabilitas (%)"])
-            st.markdown("</div>", unsafe_allow_html=True)
+            with c1:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                section("Probabilitas Prediksi Topik")
+                if prob_df is not None:
+                    show_df = prob_df[["Label Dataset", "Kategori Umum", "Probabilitas (%)"]].copy()
+                    show_df["Probabilitas (%)"] = show_df["Probabilitas (%)"].round(2)
+                    st.dataframe(show_df, use_container_width=True, hide_index=True)
+                    st.bar_chart(show_df.set_index("Label Dataset")["Probabilitas (%)"])
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        with c2:
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            section("Kata Kunci Dominan")
-            key_df = pd.DataFrame(keywords, columns=["Kata", "Frekuensi"])
-            st.dataframe(key_df, use_container_width=True, hide_index=True)
-            if len(key_df) > 0:
-                st.bar_chart(key_df.set_index("Kata")["Frekuensi"])
-            st.markdown("</div>", unsafe_allow_html=True)
+            with c2:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                section("Kata Kunci Dominan")
+                key_df = pd.DataFrame(keywords, columns=["Kata", "Frekuensi"])
+                st.dataframe(key_df, use_container_width=True, hide_index=True)
+                if len(key_df) > 0:
+                    st.bar_chart(key_df.set_index("Kata")["Frekuensi"])
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        section("Ringkasan Otomatis")
-        st.write(summary)
-        with st.expander("Lihat teks setelah preprocessing"):
-            st.write(clean)
-        st.markdown("</div>", unsafe_allow_html=True)
+            c3, c4 = st.columns(2)
 
+            with c3:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                section("Analisis Sentimen")
+                sent_df = pd.DataFrame({"Jenis": ["Positif", "Negatif"], "Jumlah Kata": [pos, neg]})
+                st.metric("Sentimen", sent_label)
+                st.bar_chart(sent_df.set_index("Jenis")["Jumlah Kata"])
+                st.caption("Sentimen dihitung menggunakan lexicon sederhana.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with c4:
+                st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                section("Ringkasan Otomatis")
+                st.write(summary)
+                st.caption("Ringkasan akan lebih bermakna jika input terdiri dari beberapa kalimat.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with st.expander("Lihat teks setelah preprocessing"):
+                st.write(clean)
 
 # =========================================================
 # PREDIKSI BANYAK BERITA
@@ -867,8 +1023,16 @@ elif menu == "Prediksi Banyak Berita":
 elif menu == "Analisis Sentimen":
     hero(
         "Analisis Sentimen Berita",
-        "Fitur ini menilai kecenderungan sentimen berita menggunakan pendekatan lexicon sederhana: positif, negatif, atau netral.",
-        ["Positif", "Negatif", "Netral"]
+        "Masukkan kalimat atau paragraf berita. Sistem akan menilai kecenderungan sentimen: positif, negatif, atau netral.",
+        ["Positif", "Negatif", "Netral", "Lexicon"]
+    )
+
+    st.markdown(
+        '<div class="info-modern">'
+        '<b>Input yang disarankan:</b> gunakan kalimat atau paragraf, bukan satu kata. '
+        'Contoh: Program transportasi publik berhasil meningkatkan pelayanan, tetapi masih mendapat kritik karena keterlambatan.'
+        '</div>',
+        unsafe_allow_html=True
     )
 
     text = st.text_area(
@@ -876,6 +1040,18 @@ elif menu == "Analisis Sentimen":
         value="Program transportasi publik baru dinilai berhasil meningkatkan pelayanan masyarakat meskipun masih mendapat kritik terkait keterlambatan.",
         height=220
     )
+
+    kualitas, word_count, sentence_count, pesan = input_quality_info(text)
+
+    colq1, colq2, colq3 = st.columns(3)
+    with colq1:
+        st.metric("Kualitas Input", kualitas)
+    with colq2:
+        st.metric("Jumlah Kata", word_count)
+    with colq3:
+        st.metric("Jumlah Kalimat", sentence_count)
+
+    st.caption(pesan)
 
     if st.button("Analisis Sentimen"):
         label, pos, neg, score = sentiment_analysis(text)
@@ -891,13 +1067,32 @@ elif menu == "Analisis Sentimen":
         with col4:
             metric_card("Skor", score)
 
-        chart_df = pd.DataFrame({"Jenis": ["Positif", "Negatif"], "Jumlah": [pos, neg]})
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        section("Grafik Sentimen")
-        st.bar_chart(chart_df.set_index("Jenis")["Jumlah"])
-        st.write("Analisis ini bersifat sederhana dan berbasis daftar kata. Untuk hasil lebih akurat, dapat dikembangkan dengan model machine learning khusus sentimen.")
-        st.markdown("</div>", unsafe_allow_html=True)
+        col_a, col_b = st.columns(2)
 
+        with col_a:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            section("Grafik Sentimen")
+            chart_df = pd.DataFrame({"Jenis": ["Positif", "Negatif"], "Jumlah": [pos, neg]})
+            st.bar_chart(chart_df.set_index("Jenis")["Jumlah"])
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_b:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            section("Kata Kunci Teks")
+            key_df = pd.DataFrame(keywords, columns=["Kata", "Frekuensi"])
+            st.dataframe(key_df, use_container_width=True, hide_index=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+        section("Interpretasi Sentimen")
+        if label == "Positif":
+            st.write("Teks cenderung positif karena kata bernuansa positif lebih dominan dibandingkan kata negatif.")
+        elif label == "Negatif":
+            st.write("Teks cenderung negatif karena kata bernuansa negatif lebih dominan dibandingkan kata positif.")
+        else:
+            st.write("Teks cenderung netral karena tidak ditemukan dominasi kuat antara kata positif dan negatif.")
+        st.caption("Catatan: analisis ini masih berbasis lexicon sederhana, bukan model sentimen khusus.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
 # WORD CLOUD & KEYWORD
@@ -962,7 +1157,7 @@ elif menu == "Filter Analisis":
     )
 
     if dataset_clean_df is None:
-        st.warning("File dataset_clean.csv belum tersedia. Jalankan kode Colab pengembangan total untuk membuat file ini.")
+        st.warning("File dataset_clean_sample.csv belum tersedia. Jalankan kode Colab pengembangan total untuk membuat file ini.")
     else:
         data = dataset_clean_df.copy()
 
@@ -1023,7 +1218,7 @@ elif menu == "Dashboard Monitoring":
     data = dataset_clean_df
 
     if data is None:
-        st.warning("File dataset_clean.csv belum tersedia. Jalankan kode Colab pengembangan total untuk membuat file monitoring.")
+        st.warning("File dataset_clean_sample.csv belum tersedia. Jalankan kode Colab pengembangan total untuk membuat file monitoring.")
     else:
         total = len(data)
         total_source = data["source"].nunique() if "source" in data.columns else "-"
@@ -1075,67 +1270,139 @@ elif menu == "Dashboard Monitoring":
 
 elif menu == "Berita Real-Time":
     hero(
-        "Integrasi Berita Real-Time",
-        "Fitur ini mengambil berita terbaru dari RSS, kemudian melakukan prediksi topik, sentimen, keyword, dan ringkasan otomatis.",
-        ["RSS", "Real-time", "Auto analysis"]
+        "Integrasi Berita Real-Time Google News",
+        "Pengguna cukup memasukkan keyword. Sistem otomatis mengambil berita terbaru dari Google News RSS, lalu menganalisis topik, kategori umum, sentimen, keyword, dan ringkasan.",
+        ["Keyword", "Google News", "Real-time", "Auto analysis"]
     )
 
-    st.markdown('<div class="warning-modern">Fitur ini membutuhkan koneksi internet dari server Streamlit. Jika server memblokir akses RSS tertentu, gunakan RSS lain.</div>', unsafe_allow_html=True)
-
-    rss_url = st.text_input(
-        "Masukkan URL RSS",
-        value="https://news.google.com/rss/search?q=Jawa%20Timur&hl=id&gl=ID&ceid=ID:id"
+    st.markdown(
+        '<div class="info-modern">'
+        '<b>Cara pakai:</b> masukkan kata kunci seperti <i>Jawa Timur</i>, <i>KPK</i>, <i>Trans Jatim</i>, '
+        '<i>Prabowo</i>, atau <i>ekonomi Indonesia</i>. Sistem akan membuat link RSS Google News secara otomatis.'
+        '</div>',
+        unsafe_allow_html=True
     )
+
+    col1, col2, col3 = st.columns([2, 1, 1])
+
+    with col1:
+        keyword = st.text_input(
+            "Masukkan keyword berita",
+            value="Jawa Timur",
+            placeholder="Contoh: Jawa Timur, KPK, Trans Jatim, Prabowo, ekonomi Indonesia"
+        )
+
+    with col2:
+        language = st.selectbox("Bahasa", ["id", "en"], index=0)
+
+    with col3:
+        country = st.selectbox("Negara", ["ID", "US"], index=0)
 
     limit = st.slider("Jumlah berita real-time", 3, 30, 10)
 
-    if st.button("Ambil & Analisis RSS"):
+    rss_url = build_google_news_rss_url(keyword, language=language, country=country)
+
+    with st.expander("Lihat URL RSS Google News otomatis"):
+        st.code(rss_url)
+
+    if st.button("🌐 Ambil Berita dari Google News"):
         if feedparser is None:
             st.error("Package feedparser belum tersedia. Tambahkan feedparser ke requirements.txt.")
         else:
             feed = feedparser.parse(rss_url)
-            entries = feed.entries[:limit]
 
-            rows = []
-            for e in entries:
-                title = getattr(e, "title", "")
-                summary = getattr(e, "summary", "")
-                link = getattr(e, "link", "")
-                text = f"{title} {summary}"
+            if getattr(feed, "bozo", 0) == 1 and len(feed.entries) == 0:
+                st.error("RSS Google News gagal dibaca. Coba keyword lain atau periksa koneksi Streamlit Cloud.")
+            else:
+                entries = feed.entries[:limit]
 
-                pred, cat, clean, prob_df = predict_news(text)
-                sent_label, pos, neg, score = sentiment_analysis(text)
+                if len(entries) == 0:
+                    st.warning("Tidak ada berita ditemukan. Coba keyword yang lebih umum.")
+                else:
+                    rows = []
 
-                rows.append({
-                    "Judul": title,
-                    "Link": link,
-                    "Label Dataset": pred,
-                    "Kategori Umum": cat,
-                    "Sentimen": sent_label,
-                    "Keyword": ", ".join([w for w, c in extract_keywords(text, 5)]),
-                    "Ringkasan": simple_summary(text, 2)
-                })
+                    for e in entries:
+                        raw_title = getattr(e, "title", "")
+                        title, media_source = clean_google_news_title(raw_title)
+                        summary = getattr(e, "summary", "")
+                        link = getattr(e, "link", "")
+                        published = getattr(e, "published", "")
 
-            result = pd.DataFrame(rows)
+                        text = f"{title} {summary}"
 
-            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-            section("Hasil Analisis RSS")
-            st.dataframe(result, use_container_width=True, hide_index=True)
-            st.markdown("</div>", unsafe_allow_html=True)
+                        pred, cat, clean, prob_df = predict_news(text)
+                        sent_label, pos, neg, score = sentiment_analysis(text)
 
-            if len(result) > 0:
-                col1, col2 = st.columns(2)
-                with col1:
+                        rows.append({
+                            "Judul": title,
+                            "Media": media_source,
+                            "Waktu": published,
+                            "Link": link,
+                            "Label Dataset": pred,
+                            "Kategori Umum": cat,
+                            "Sentimen": sent_label,
+                            "Keyword": ", ".join([w for w, c in extract_keywords(text, 5)]),
+                            "Ringkasan": simple_summary(text, 2)
+                        })
+
+                    result = pd.DataFrame(rows)
+
+                    st.markdown('<div class="success-modern">Berita berhasil diambil dari Google News dan dianalisis otomatis.</div>', unsafe_allow_html=True)
+
+                    colm1, colm2, colm3, colm4 = st.columns(4)
+                    with colm1:
+                        metric_card("Keyword", keyword)
+                    with colm2:
+                        metric_card("Jumlah Berita", len(result))
+                    with colm3:
+                        metric_card("Kategori Dominan", result["Kategori Umum"].value_counts().index[0])
+                    with colm4:
+                        metric_card("Sentimen Dominan", result["Sentimen"].value_counts().index[0])
+
                     st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                    section("Distribusi Kategori")
-                    st.bar_chart(result["Kategori Umum"].value_counts())
-                    st.markdown("</div>", unsafe_allow_html=True)
-                with col2:
-                    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-                    section("Distribusi Sentimen")
-                    st.bar_chart(result["Sentimen"].value_counts())
+                    section("Hasil Analisis Google News")
+                    st.dataframe(result, use_container_width=True, hide_index=True)
                     st.markdown("</div>", unsafe_allow_html=True)
 
+                    col_a, col_b = st.columns(2)
+
+                    with col_a:
+                        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                        section("Distribusi Kategori")
+                        st.bar_chart(result["Kategori Umum"].value_counts())
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    with col_b:
+                        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                        section("Distribusi Sentimen")
+                        st.bar_chart(result["Sentimen"].value_counts())
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    col_c, col_d = st.columns(2)
+
+                    with col_c:
+                        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                        section("Media Paling Banyak Muncul")
+                        st.bar_chart(result["Media"].value_counts().head(10))
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    with col_d:
+                        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+                        section("Keyword Gabungan")
+                        all_keywords = ", ".join(result["Keyword"].astype(str).tolist())
+                        key_df = pd.DataFrame(extract_keywords(all_keywords, 10), columns=["Kata", "Frekuensi"])
+                        if len(key_df) > 0:
+                            st.dataframe(key_df, use_container_width=True, hide_index=True)
+                            st.bar_chart(key_df.set_index("Kata")["Frekuensi"])
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    csv = result.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "⬇️ Download Hasil Google News CSV",
+                        data=csv,
+                        file_name=f"hasil_google_news_{clean_text(keyword).replace(' ', '_')}.csv",
+                        mime="text/csv"
+                    )
 
 # =========================================================
 # RINGKASAN OTOMATIS
@@ -1144,17 +1411,46 @@ elif menu == "Berita Real-Time":
 elif menu == "Ringkasan Otomatis":
     hero(
         "Ringkasan Otomatis Berita",
-        "Masukkan teks berita panjang. Sistem akan menampilkan ringkasan, topik, keyword, dan sentimen.",
+        "Masukkan artikel atau paragraf berita yang cukup panjang. Sistem akan mengambil kalimat paling penting sebagai ringkasan.",
         ["Summarization", "Keyword", "Sentiment", "Topic"]
+    )
+
+    st.markdown(
+        '<div class="warning-modern">'
+        '<b>Penting:</b> fitur ringkasan otomatis membutuhkan teks panjang, minimal 4–5 kalimat. '
+        'Jika teks hanya 1–2 kalimat, sistem tidak benar-benar meringkas, tetapi hanya menampilkan isi utama teks.'
+        '</div>',
+        unsafe_allow_html=True
+    )
+
+    contoh_panjang = (
+        "Pemerintah Provinsi Jawa Timur memperluas layanan transportasi publik melalui program Trans Jatim. "
+        "Program ini bertujuan meningkatkan mobilitas masyarakat dan mengurangi kemacetan di kawasan perkotaan. "
+        "Sejumlah pihak mengapresiasi langkah tersebut karena dinilai membantu masyarakat yang bergantung pada transportasi umum. "
+        "Namun, sebagian pengguna masih mengeluhkan keterlambatan jadwal pada jam sibuk. "
+        "Pemerintah daerah menyatakan akan melakukan evaluasi secara berkala terhadap rute, jadwal, dan kualitas layanan. "
+        "Evaluasi tersebut diharapkan dapat meningkatkan efektivitas program dan memperluas jangkauan layanan ke wilayah lain."
     )
 
     text = st.text_area(
         "Masukkan teks berita panjang:",
-        value="Pemerintah Provinsi Jawa Timur memperluas layanan transportasi publik melalui program Trans Jatim. Program ini bertujuan meningkatkan mobilitas masyarakat dan mengurangi kemacetan. Sejumlah pihak mengapresiasi langkah ini karena dinilai membantu masyarakat. Namun, sebagian pengguna masih mengeluhkan keterlambatan jadwal pada jam sibuk.",
-        height=280
+        value=contoh_panjang,
+        height=300
     )
 
-    max_sent = st.slider("Jumlah kalimat ringkasan", 1, 5, 3)
+    kualitas, word_count, sentence_count, pesan = input_quality_info(text)
+
+    colq1, colq2, colq3 = st.columns(3)
+    with colq1:
+        st.metric("Kualitas Input", kualitas)
+    with colq2:
+        st.metric("Jumlah Kata", word_count)
+    with colq3:
+        st.metric("Jumlah Kalimat", sentence_count)
+
+    st.caption(pesan)
+
+    max_sent = st.slider("Jumlah kalimat ringkasan", min_value=1, max_value=5, value=3)
 
     if st.button("Buat Ringkasan"):
         pred, cat, clean, prob_df = predict_news(text)
@@ -1168,20 +1464,38 @@ elif menu == "Ringkasan Otomatis":
         with col2:
             metric_card("Sentimen", sent_label)
         with col3:
-            metric_card("Label", pred)
+            metric_card("Label Dataset", pred)
 
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        section("Ringkasan")
+        section("Hasil Ringkasan")
         st.write(summary)
         st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        section("Kata Kunci")
-        key_df = pd.DataFrame(keywords, columns=["Kata", "Frekuensi"])
-        st.dataframe(key_df, use_container_width=True, hide_index=True)
-        st.bar_chart(key_df.set_index("Kata")["Frekuensi"])
-        st.markdown("</div>", unsafe_allow_html=True)
+        col_a, col_b = st.columns(2)
 
+        with col_a:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            section("Kata Kunci Utama")
+            key_df = pd.DataFrame(keywords, columns=["Kata", "Frekuensi"])
+            st.dataframe(key_df, use_container_width=True, hide_index=True)
+            if len(key_df) > 0:
+                st.bar_chart(key_df.set_index("Kata")["Frekuensi"])
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col_b:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            section("Analisis Ringkasan")
+            if sentence_count < 4:
+                st.write(
+                    "Teks masih pendek. Ringkasan otomatis akan lebih jelas jika teks terdiri dari beberapa paragraf atau minimal 4–5 kalimat."
+                )
+            else:
+                st.write(
+                    "Ringkasan dibuat dengan memilih kalimat yang memiliki bobot kata kunci tinggi dan posisi penting dalam teks."
+                )
+            st.write(f"Jumlah kalimat awal: **{sentence_count}**")
+            st.write(f"Jumlah kalimat ringkasan: **{max_sent}**")
+            st.markdown("</div>", unsafe_allow_html=True)
 
 # =========================================================
 # EVALUASI MODEL
