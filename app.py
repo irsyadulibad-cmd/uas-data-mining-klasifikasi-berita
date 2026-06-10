@@ -1305,7 +1305,7 @@ elif menu == "Berita Real-Time":
     with st.expander("Lihat URL RSS Google News otomatis"):
         st.code(rss_url)
 
-    if st.button("🌐 Ambil Berita dari Google News"):
+    if st.button("🌐 Ambil Berita"):
         if feedparser is None:
             st.error("Package feedparser belum tersedia. Tambahkan feedparser ke requirements.txt.")
         else:
