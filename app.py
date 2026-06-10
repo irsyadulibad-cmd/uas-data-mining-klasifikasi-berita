@@ -537,7 +537,7 @@ def predict_news(text):
 
 
 # =========================================================
-# SIDEBAR
+# SIDEBAR - MENU DIKELOMPOKKAN
 # =========================================================
 
 with st.sidebar:
@@ -545,25 +545,87 @@ with st.sidebar:
     st.caption("Klasifikasi, sentimen, ringkasan, dan monitoring berita")
     st.markdown("---")
 
-    menu = st.radio(
-        "Pilih Menu",
+    kelompok_menu = st.radio(
+        "Kelompok Menu",
         [
-            "Beranda",
-            "Prediksi Topik",
-            "Prediksi Banyak Berita",
-            "Analisis Sentimen",
-            "Word Cloud & Keyword",
-            "Filter Analisis",
-            "Dashboard Monitoring",
-            "Berita Real-Time",
-            "Ringkasan Otomatis",
-            "Evaluasi Model",
-            "Informasi Dataset",
-            "Pengembangan"
+            "📊 Dataset & Model",
+            "✍️ Input Pengguna",
+            "🌐 Real-Time",
         ]
     )
 
     st.markdown("---")
+
+    if kelompok_menu == "📊 Dataset & Model":
+        st.markdown("### 📊 Data dari Dataset")
+        st.caption("Menu ini memakai file hasil training, dataset sample, dan file evaluasi model.")
+
+        menu = st.radio(
+            "Pilih Menu",
+            [
+                "Beranda",
+                "Informasi Dataset",
+                "Filter Analisis",
+                "Dashboard Monitoring",
+                "Word Cloud & Keyword",
+                "Evaluasi Model",
+                "Pengembangan",
+            ]
+        )
+
+        st.markdown("---")
+        st.markdown("### Sumber Data")
+        st.write("• dataset_clean_sample.csv")
+        st.write("• evaluation_metrics.json")
+        st.write("• classification_report.csv")
+        st.write("• confusion_matrix.csv")
+        st.write("• tag_distribution.csv")
+        st.write("• source_distribution.csv")
+        st.write("• monthly_distribution.csv")
+        st.write("• top_words.csv")
+        st.write("• algorithm_comparison.csv")
+
+    elif kelompok_menu == "✍️ Input Pengguna":
+        st.markdown("### ✍️ Data dari Input User")
+        st.caption("Menu ini memakai teks atau file CSV yang dimasukkan pengguna secara manual.")
+
+        menu = st.radio(
+            "Pilih Menu",
+            [
+                "Prediksi Topik",
+                "Prediksi Banyak Berita",
+                "Analisis Sentimen",
+                "Ringkasan Otomatis",
+            ]
+        )
+
+        st.markdown("---")
+        st.markdown("### Sumber Data")
+        st.write("• Teks berita manual")
+        st.write("• File CSV upload")
+        st.write("• Input pengguna di aplikasi")
+        st.write("• Model hasil training")
+
+    else:
+        st.markdown("### 🌐 Data Real-Time")
+        st.caption("Menu ini mengambil data terbaru dari RSS/Google News secara langsung.")
+
+        menu = st.radio(
+            "Pilih Menu",
+            [
+                "Berita Real-Time",
+            ]
+        )
+
+        st.markdown("---")
+        st.markdown("### Sumber Data")
+        st.write("• RSS Google News")
+        st.write("• RSS media online")
+        st.write("• Data berita terbaru")
+        st.write("• Model hasil training")
+
+    st.markdown("---")
+
     st.markdown("### Model")
     st.write("• TF-IDF")
     st.write("• Naive Bayes / best model")
@@ -572,6 +634,7 @@ with st.sidebar:
     st.write("• Ringkasan extractive")
 
     st.markdown("---")
+
     if model_available:
         st.success("Model aktif")
     else:
